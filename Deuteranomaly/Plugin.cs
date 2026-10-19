@@ -31,6 +31,7 @@ namespace Deuteranomaly
         {
             _harmony = new Harmony(HarmonyId);
             _harmony.PatchAll(Assembly.GetExecutingAssembly());
+            CustomColorIntegration.Init();
             Log.Info("Deuteranomaly loaded.");
         }
 

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 // Pure C#, no Unity or Beat Saber references, so it can be unit-tested outside the game.
 // Targets .NET Framework 4.7.2 (no Math.Cbrt, no tuples).
@@ -51,6 +52,16 @@ namespace Deuteranomaly.Core
 
         public static Result Resolve(Rgb left, Rgb right, Settings s)
         {
+            return Resolve(left, right, s, false, false);
+        }
+
+        /// <summary>
+        /// Like <see cref="Resolve(Rgb, Rgb, Settings)"/>, but a side marked as kept is never
+        /// changed (for example a color the caller can't rewrite). With both kept, only the
+        /// distance is reported.
+        /// </summary>
+        public static Result Resolve(Rgb left, Rgb right, Settings s, bool keepLeft, bool keepRight)
+        {
             double origDist = SimulatedDistance(left, right, s.Type, s.Severity);
             if (origDist >= s.Threshold)
             {
@@ -61,35 +72,61 @@ namespace Deuteranomaly.Core
                 };
             }
 
-            List<Candidate> lc = BuildCandidates(left, s);
-            List<Candidate> rc = BuildCandidates(right, s);
+            if (keepLeft && keepRight)
+            {
+                return new Result
+                {
+                    Left = left, Right = right, Changed = false, MeetsThreshold = false,
+                    OriginalDistance = origDist, FinalDistance = origDist
+                };
+            }
+
+            List<Candidate> lc = keepLeft ? OriginalOnly(left, s) : BuildCandidates(left, s);
+            List<Candidate> rc = keepRight ? OriginalOnly(right, s) : BuildCandidates(right, s);
 
             double bestCost = double.MaxValue;
             Candidate bestL = null, bestR = null;
             double bestDist = 0;
 
-            double fallbackDist = -1;
-            Candidate fbL = null, fbR = null;
-
-            for (int i = 0; i < lc.Count; i++)
+            // Cheapest pairs first: once a pair's cost can't beat the best passing pair, stop.
+            // The level-start pass resolves many pairs, so this matters more than it looks.
+            List<Candidate> ls = lc.OrderBy(c => c.Cost).ToList();
+            List<Candidate> rs = rc.OrderBy(c => c.Cost).ToList();
+            for (int i = 0; i < ls.Count; i++)
             {
-                for (int j = 0; j < rc.Count; j++)
+                if (ls[i].Cost + rs[0].Cost >= bestCost) break;
+                for (int j = 0; j < rs.Count; j++)
                 {
-                    double d = DeltaE2000(lc[i].SimLab, rc[j].SimLab);
-                    if (d > fallbackDist) { fallbackDist = d; fbL = lc[i]; fbR = rc[j]; }
+                    double cost = ls[i].Cost + rs[j].Cost;
+                    if (cost >= bestCost) break;
+                    double d = DeltaE2000(ls[i].SimLab, rs[j].SimLab);
                     if (d < s.Threshold) continue;
-                    double cost = lc[i].Cost + rc[j].Cost;
-                    if (cost < bestCost) { bestCost = cost; bestL = lc[i]; bestR = rc[j]; bestDist = d; }
+                    bestCost = cost; bestL = ls[i]; bestR = rs[j]; bestDist = d;
                 }
             }
 
             bool met = bestL != null;
-            if (!met) { bestL = fbL; bestR = fbR; bestDist = fallbackDist; }
+            if (!met)
+            {
+                // Nothing passes: fall back to the most distinguishable pair.
+                double fallbackDist = -1;
+                for (int i = 0; i < lc.Count; i++)
+                {
+                    for (int j = 0; j < rc.Count; j++)
+                    {
+                        double d = DeltaE2000(lc[i].SimLab, rc[j].SimLab);
+                        if (d > fallbackDist) { fallbackDist = d; bestL = lc[i]; bestR = rc[j]; }
+                    }
+                }
+                bestDist = fallbackDist;
+            }
 
             return new Result
             {
                 Left = bestL.Color, Right = bestR.Color,
-                Changed = true, MeetsThreshold = met,
+                // The best pair can be the unchanged inputs (always candidates) when nothing reaches the threshold.
+                Changed = !SameColor(bestL.Color, left) || !SameColor(bestR.Color, right),
+                MeetsThreshold = met,
                 OriginalDistance = origDist, FinalDistance = bestDist
             };
         }
@@ -132,13 +169,26 @@ namespace Deuteranomaly.Core
                 }
             }
             // The unchanged color is always a candidate, so the search can keep one saber as is.
-            list.Add(new Candidate
-            {
-                Color = original,
-                SimLab = ToLab(Simulate(original, s.Type, s.Severity)),
-                Cost = 0
-            });
+            list.AddRange(OriginalOnly(original, s));
             return list;
+        }
+
+        static List<Candidate> OriginalOnly(Rgb original, Settings s)
+        {
+            return new List<Candidate>
+            {
+                new Candidate
+                {
+                    Color = original,
+                    SimLab = ToLab(Simulate(original, s.Type, s.Severity)),
+                    Cost = 0
+                }
+            };
+        }
+
+        static bool SameColor(Rgb a, Rgb b)
+        {
+            return a.R == b.R && a.G == b.G && a.B == b.B;
         }
 
         // ---------- color vision simulation ----------

@@ -8,7 +8,8 @@ namespace Deuteranomaly.Patches
     /// <summary>
     /// Corrects the level's color scheme just before <c>GameplayCoreInstaller</c> binds it.
     /// This runs after SongCore's map colors and every transition setup patch, and before
-    /// Heck's postfix on the same method deserializes the map's custom data.
+    /// Heck's postfix on the same method deserializes the map's custom data, so the Chroma
+    /// colors in that data are corrected here too (<see cref="CustomColorIntegration"/>).
     /// </summary>
     [HarmonyPatch(typeof(GameplayCoreInstaller), nameof(GameplayCoreInstaller.InstallBindings))]
     internal static class GameplayCoreInstallerPatch
@@ -27,6 +28,19 @@ namespace Deuteranomaly.Patches
             catch (Exception e)
             {
                 Plugin.Log.Error($"Color correction failed, keeping the map's colors: {e}");
+            }
+
+            // After the scheme, whose final colors the pass pairs uncolored notes against.
+            try
+            {
+                if (Plugin.Enabled && ____sceneSetupData != null)
+                {
+                    CustomColorIntegration.Apply(____sceneSetupData, ____sceneSetupData.beatmapKey.SerializedName());
+                }
+            }
+            catch (Exception e)
+            {
+                Plugin.Log.Error($"Custom color correction failed: {e}");
             }
         }
 

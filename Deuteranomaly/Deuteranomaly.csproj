@@ -21,6 +21,11 @@
 
   <ItemGroup>
     <DependsOn Include="BSIPA" Version="^4.3.0" />
+    <!-- Optional: loaded first when present, never required. -->
+    <LoadAfter Include="SongCore" />
+    <LoadAfter Include="CustomJSONData" />
+    <LoadAfter Include="Heck" />
+    <LoadAfter Include="Chroma" />
   </ItemGroup>
 
   <ItemGroup>

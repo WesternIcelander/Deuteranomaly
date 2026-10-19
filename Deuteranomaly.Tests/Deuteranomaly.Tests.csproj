@@ -10,6 +10,7 @@
   <!-- Only the core file, not the plugin, which needs the game DLLs. -->
   <ItemGroup>
     <Compile Include="..\Deuteranomaly\Core\ColorAssistCore.cs" Link="Core\ColorAssistCore.cs" />
+    <Compile Include="..\Deuteranomaly\Core\CustomColorPass.cs" Link="Core\CustomColorPass.cs" />
   </ItemGroup>
 
   <ItemGroup>
