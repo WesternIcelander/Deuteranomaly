@@ -32,6 +32,14 @@ Sanity numbers from the JS port at severity 0.6: default red/blue pair about 47.
 ## Tasks
 
 1. **Project setup.** Create the solution outside the Beat Saber folder. The BSMG wiki recommends the BeatSaberModdingTools (BSMT) templates, with `GameVersion` set to `1.40.8` in `Directory.Build.props` and the game directory stored in the `.csproj.user` file. A BSManager instance path can be used as the game directory. Debug and Release builds copy the DLL into the game's `Plugins` folder. The game folder is `D:\Software\BSManager\BSInstances\1.40.8` (see `CLAUDE.md`: ask before writing to it).
+   - **Done.** The BSMT Visual Studio templates aren't installed, so the project was written by hand in the same shape: `Deuteranomaly.sln`, `Deuteranomaly/Deuteranomaly.csproj` (SDK-style, `net472`, `BeatSaberModdingTools.Tasks` 2.0.0-beta7, `Microsoft.NETFramework.ReferenceAssemblies` so it builds with only the .NET SDK), and `Deuteranomaly/Plugin.cs` (a BSIPA plugin that logs on start).
+   - `GameVersion` is in `Directory.Build.props`. BSMT generates the manifest (`GenerateManifest`) from the csproj properties (`PluginId`, `PluginName`, `Authors`, `Description`, `Version`) and `DependsOn` items. Optional mods go in `LoadAfter` items later.
+   - The game directory is the `GameDirectory` property (BSMT 2's name; `BeatSaberDir` is deprecated) in `Deuteranomaly/Deuteranomaly.csproj.user`, which is gitignored. On a fresh clone, create it:
+     ```xml
+     <Project><PropertyGroup><GameDirectory>D:\Software\BSManager\BSInstances\1.40.8</GameDirectory></PropertyGroup></Project>
+     ```
+   - Detected in the install: BSIPA 4.3.6, Harmony 2.10.2 (`Libs\0Harmony.dll`), BSML 1.12.5, Chroma 2.9.20, Heck 1.7.14, CustomJSONData 2.6.8, NoodleExtensions 1.7.18, Vivify 1.0.5, CustomSabersLite 1.0.3, BeatSaberPlus 6.4.4.
+   - Builds copy the DLL into the game's `Plugins` folder. To build without touching the game, pass `-p:DisableCopyToGame=true` (used so far; nothing has been copied yet).
 2. **Compile the core and add the other deficiency types.** Add `ColorAssistCore.cs` and fix any compile errors. Keep it free of Unity and game references. Rename its namespace from `PerMapColorAssist.Core` to `Deuteranomaly.Core` to match the mod name, and use the `Deuteranomaly` root namespace for the rest of the mod. Then generalize the simulation:
    - Add `enum CvdType { Protan, Deutan, Tritan }` and a `Settings.Type` field (default `Deutan`).
    - Replace `SimulateDeuteranomaly(c, severity)` with `Simulate(c, type, severity)`. Pass the type through `SimulatedDistance` and `BuildCandidates`. The candidate search needs no change, since it already tries hues all the way around the wheel.

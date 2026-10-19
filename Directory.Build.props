@@ -1,0 +1,7 @@
+<Project>
+  <PropertyGroup>
+    <ImportBSMTTargets>True</ImportBSMTTargets>
+    <BSMTProjectType>BSIPA</BSMTProjectType>
+    <GameVersion>1.40.8</GameVersion>
+  </PropertyGroup>
+</Project>

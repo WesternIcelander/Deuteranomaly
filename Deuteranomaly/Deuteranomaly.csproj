@@ -1,0 +1,54 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <OutputType>Library</OutputType>
+    <LangVersion>9</LangVersion>
+    <RootNamespace>Deuteranomaly</RootNamespace>
+    <AssemblyName>Deuteranomaly</AssemblyName>
+    <Version>0.1.0</Version>
+    <DebugType>portable</DebugType>
+    <!-- Set GameDirectory in Deuteranomaly.csproj.user (not committed). -->
+  </PropertyGroup>
+
+  <!-- BSMT generates manifest.json from these; GameVersion comes from Directory.Build.props. -->
+  <PropertyGroup>
+    <GenerateManifest>true</GenerateManifest>
+    <PluginId>io.siggi.beatsaber.deuteranomaly</PluginId>
+    <PluginName>Deuteranomaly</PluginName>
+    <Authors>Siggi</Authors>
+    <Description>Replaces a map's saber and block colors only when they look too similar to a player with a color vision deficiency.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <DependsOn Include="BSIPA" Version="^4.3.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="IPA.Loader">
+      <HintPath>$(GameDirectory)\Beat Saber_Data\Managed\IPA.Loader.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="UnityEngine">
+      <HintPath>$(GameDirectory)\Beat Saber_Data\Managed\UnityEngine.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>$(GameDirectory)\Beat Saber_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="0Harmony">
+      <HintPath>$(GameDirectory)\Libs\0Harmony.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BeatSaberModdingTools.Tasks" Version="2.0.0-beta7">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3">
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+</Project>
