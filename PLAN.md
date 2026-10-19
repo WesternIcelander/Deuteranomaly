@@ -80,6 +80,19 @@ Sanity numbers from the JS port at severity 0.6: default red/blue pair about 47.
    - `Resolve` returns a changed pair with distance at or above the threshold for a red/green input at high severity (protan and deutan), and for a tritan confusion pair such as blue/green or yellow/violet (tritan).
    - Record new sanity numbers for protan and tritan alongside the deutan ones above.
    - `Resolve` never returns colors below `MinValue` brightness when it changes them.
+   - **Done.** `Deuteranomaly.Tests/Deuteranomaly.Tests.csproj` (xUnit 2.9, `net472` like the game, in the solution) links only `Deuteranomaly/Core/ColorAssistCore.cs`. Run with `dotnet test Deuteranomaly.Tests` (30 tests, all passing). Building the whole solution still needs `-p:DisableCopyToGame=true` to keep the plugin out of the game folder.
+   - Pure red/green does not trigger for protan (42.4 at severity 1.0) or for deutan at 1.0 (19.4), so the tests use other confusion pairs, found by search. `MinValue` caveat: the unchanged original is always a candidate, so a side the search keeps can stay darker than `MinValue`. Only replaced colors are guaranteed to be at least `MinValue`, and that is what the test checks.
+   - Confusion pairs used by the tests (simulated CIEDE2000 at severity 0.6 / 1.0, then `Resolve` at severity 1.0, threshold 15):
+
+     | Type | Input | Distance 0.6 / 1.0 | Resolved | Final |
+     |---|---|---|---|---|
+     | Protan | `#A01A1A` / `#00601A` | 32.7 / 9.9 | `#A01A1A` / `#00731F` | 16.3 |
+     | Deutan | `#A01A1A` / `#00601A` | 27.3 / 6.4 | `#C01F1F` / `#005918` | 15.3 |
+     | Deutan | `#FF8000` / `#00FF00` | 29.3 / 10.1 | `#CC6600` / `#00FF00` | 21.2 |
+     | Tritan | `#0060FF` / `#00A0A0` | 23.8 / 9.8 | `#004DCC` / `#00A0A0` | 19.8 |
+     | Tritan | `#FF00FF` / `#FF8080` | 19.9 / 6.0 | `#CC00CC` / `#FF8080` | 17.1 |
+
+     Every pair passes at severity 0.6, so with the defaults (0.6, 15) none of them would be overridden. For in-game tuning in step 9 this means `Threshold = 15` is lenient: the user may need a higher threshold or severity before anything triggers.
 4. **Decompile the 1.40.8 assemblies** (dnSpy or ILSpy) to find where the active color scheme is applied when a level starts. Do not rely on remembered class or method names, because they change between versions. Candidates to look for, from older versions and unverified for 1.40.8: a `ColorScheme` class holding saber A/B colors, the transition setup that takes an override color scheme when starting a standard level, and the player's color scheme settings. Record the exact types, methods, and signatures found in this document once confirmed.
 5. **Chroma, other mods, and map colors.** Many maps define their own colors, and Chroma may override them. Decide, based on the decompiled flow, where the final saber and block colors are known. The check should run on the colors that would otherwise be displayed. Decompile the installed mods (read-only) to see how they apply colors. Installed mods that may affect colors: Chroma, Heck, CustomJSONData, NoodleExtensions, Vivify, CustomSabersLite, BeatSaberPlus NoteTweaker and GameTweaker. Find every way colors can change partway through a map, for example Chroma per-note colors, animated colors on tracks, and saber color changes. Record each one here with its type, method, and signature.
 6. **Hook.** Prefer the least invasive option found in steps 4 and 5: modifying the color scheme object passed into level start, or a Harmony patch (Harmony is available in the BSIPA ecosystem) on the method that applies it. Convert to `Rgb`, call `ColorAssist.Resolve`, and write the result back only when `Changed` is true.
