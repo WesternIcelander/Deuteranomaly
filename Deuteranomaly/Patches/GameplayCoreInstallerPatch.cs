@@ -80,17 +80,15 @@ namespace Deuteranomaly.Patches
             if (rule == MapRule.Excluded)
             {
                 Plugin.Log.Info($"{level}: excluded in the config, keeping the map's colors.");
-                if (setupData.colorScheme != null && !ColorSchemeCorrector.IsCorrected(setupData.colorScheme))
-                {
-                    LevelReport report = Report(setupData, level, setupData.colorScheme, null, null);
-                    report.OriginalDistance = report.FinalDistance = ColorAssist.SimulatedDistance(
-                        ColorSchemeCorrector.ToRgb(report.OriginalLeft),
-                        ColorSchemeCorrector.ToRgb(report.OriginalRight),
-                        settings.Type,
-                        settings.Severity);
-                    report.Note = "excluded in the config";
-                }
+                ReportKept(setupData, level, settings, "excluded in the config");
+                return null;
+            }
 
+            // Same test the game uses for one saber mode: there is no second color to tell apart.
+            if (key.beatmapCharacteristic != null && key.beatmapCharacteristic.numberOfColors == 1)
+            {
+                Plugin.Log.Info($"{level}: one saber, keeping the map's colors.");
+                ReportKept(setupData, level, settings, "one saber");
                 return null;
             }
 
@@ -139,6 +137,23 @@ namespace Deuteranomaly.Patches
                 $"distance {result.OriginalDistance:F1} -> {result.FinalDistance:F1}" +
                 (result.MeetsThreshold ? "" : " (below threshold, best available)") +
                 $" ({stopwatch.ElapsedMilliseconds} ms)");
+        }
+
+        /// <summary>Records a level whose colors are kept without a check, with the distance they have.</summary>
+        private static void ReportKept(GameplayCoreSceneSetupData setupData, string level, Settings settings, string note)
+        {
+            if (setupData.colorScheme == null || ColorSchemeCorrector.IsCorrected(setupData.colorScheme))
+            {
+                return;
+            }
+
+            LevelReport report = Report(setupData, level, setupData.colorScheme, null, null);
+            report.OriginalDistance = report.FinalDistance = ColorAssist.SimulatedDistance(
+                ColorSchemeCorrector.ToRgb(report.OriginalLeft),
+                ColorSchemeCorrector.ToRgb(report.OriginalRight),
+                settings.Type,
+                settings.Severity);
+            report.Note = note;
         }
 
         /// <summary>Records the level's outcome for the settings screen's read-out.</summary>

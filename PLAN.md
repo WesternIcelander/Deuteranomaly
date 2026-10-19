@@ -171,6 +171,7 @@ Sanity numbers from the JS port at severity 0.6: default red/blue pair about 47.
    - With Chroma and the other integrated mods installed, and with them removed (for example a separate BSManager instance with only the required mods).
    - Maps whose colors change partway through, checking that the new colors are also corrected and that frame rate is unaffected.
    - That the settings entry appears in the main menu's left-hand panel (see the step 8 checklist).
+   - **One saber skipped.** Levels whose characteristic has `numberOfColors == 1` (the game's own one-saber test in `GameplayCoreInstaller`) skip both the scheme correction and the Chroma pass, like an exclusion: log `<level>: one saber, keeping the map's colors.`, read-out note "one saber". Found by a scan of the local maps, where some OneSaber difficulties use the same color for both sabers (distance 0) and would have been changed for nothing.
    - Step 9 needs the developer: installing the DLL into `Plugins` needs their OK (`CLAUDE.md`), and playing needs someone in the headset.
 
 ## Risks and notes
