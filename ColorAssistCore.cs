@@ -1,0 +1,271 @@
+using System;
+using System.Collections.Generic;
+
+// Pure C#, no Unity or Beat Saber references, so it can be unit-tested outside the game.
+// Targets .NET Framework 4.7.2 (no Math.Cbrt, no tuples).
+namespace PerMapColorAssist.Core
+{
+    /// <summary>sRGB color, each channel 0..1. Convert to/from UnityEngine.Color at the edges.</summary>
+    public struct Rgb
+    {
+        public double R, G, B;
+        public Rgb(double r, double g, double b) { R = r; G = g; B = b; }
+    }
+
+    public class Settings
+    {
+        /// <summary>Deuteranomaly severity: 0 = normal vision, 1 = full deuteranopia. Tune by eye.</summary>
+        public double Severity = 0.6;
+
+        /// <summary>Minimum CIEDE2000 distance between the two simulated colors. Tune by eye.</summary>
+        public double Threshold = 15.0;
+
+        /// <summary>Hue search step in degrees.</summary>
+        public double HueStepDeg = 10.0;
+
+        /// <summary>Brightness (HSV value) multipliers tried for each color.</summary>
+        public double[] ValueFactors = { 1.0, 0.8, 1.2 };
+
+        /// <summary>Lowest HSV value an overridden color may have, so blocks stay visible.</summary>
+        public double MinValue = 0.35;
+    }
+
+    public class Result
+    {
+        public Rgb Left, Right;
+        public bool Changed;
+        public bool MeetsThreshold;      // false only if no candidate pair reached the threshold
+        public double OriginalDistance;  // simulated distance of the input pair
+        public double FinalDistance;     // simulated distance of the returned pair
+    }
+
+    public static class ColorAssist
+    {
+        // ---------- public entry point ----------
+
+        public static Result Resolve(Rgb left, Rgb right, Settings s)
+        {
+            double origDist = SimulatedDistance(left, right, s.Severity);
+            if (origDist >= s.Threshold)
+            {
+                return new Result
+                {
+                    Left = left, Right = right, Changed = false, MeetsThreshold = true,
+                    OriginalDistance = origDist, FinalDistance = origDist
+                };
+            }
+
+            List<Candidate> lc = BuildCandidates(left, s);
+            List<Candidate> rc = BuildCandidates(right, s);
+
+            double bestCost = double.MaxValue;
+            Candidate bestL = null, bestR = null;
+            double bestDist = 0;
+
+            double fallbackDist = -1;
+            Candidate fbL = null, fbR = null;
+
+            for (int i = 0; i < lc.Count; i++)
+            {
+                for (int j = 0; j < rc.Count; j++)
+                {
+                    double d = DeltaE2000(lc[i].SimLab, rc[j].SimLab);
+                    if (d > fallbackDist) { fallbackDist = d; fbL = lc[i]; fbR = rc[j]; }
+                    if (d < s.Threshold) continue;
+                    double cost = lc[i].Cost + rc[j].Cost;
+                    if (cost < bestCost) { bestCost = cost; bestL = lc[i]; bestR = rc[j]; bestDist = d; }
+                }
+            }
+
+            bool met = bestL != null;
+            if (!met) { bestL = fbL; bestR = fbR; bestDist = fallbackDist; }
+
+            return new Result
+            {
+                Left = bestL.Color, Right = bestR.Color,
+                Changed = true, MeetsThreshold = met,
+                OriginalDistance = origDist, FinalDistance = bestDist
+            };
+        }
+
+        public static double SimulatedDistance(Rgb a, Rgb b, double severity)
+        {
+            return DeltaE2000(ToLab(SimulateDeuteranomaly(a, severity)),
+                              ToLab(SimulateDeuteranomaly(b, severity)));
+        }
+
+        // ---------- candidate generation ----------
+
+        class Candidate
+        {
+            public Rgb Color;
+            public double[] SimLab;  // Lab of the simulated color
+            public double Cost;      // perceptual change from the original under normal vision
+        }
+
+        static List<Candidate> BuildCandidates(Rgb original, Settings s)
+        {
+            double[] origLab = ToLab(original);
+            double h, sat, v;
+            RgbToHsv(original, out h, out sat, out v);
+
+            List<Candidate> list = new List<Candidate>();
+            for (double dh = -180 + s.HueStepDeg; dh <= 180.0001; dh += s.HueStepDeg)
+            {
+                foreach (double vf in s.ValueFactors)
+                {
+                    double nv = Math.Min(1.0, Math.Max(s.MinValue, v * vf));
+                    double nh = ((h + dh) % 360 + 360) % 360;
+                    Rgb c = HsvToRgb(nh, sat, nv);
+                    list.Add(new Candidate
+                    {
+                        Color = c,
+                        SimLab = ToLab(SimulateDeuteranomaly(c, s.Severity)),
+                        Cost = DeltaE2000(origLab, ToLab(c))
+                    });
+                }
+            }
+            // The unchanged color is always a candidate, so the search can keep one saber as is.
+            list.Add(new Candidate
+            {
+                Color = original,
+                SimLab = ToLab(SimulateDeuteranomaly(original, s.Severity)),
+                Cost = 0
+            });
+            return list;
+        }
+
+        // ---------- color vision simulation ----------
+
+        // Machado et al. (2009) deuteranopia matrix (severity 1.0), applied in linear RGB.
+        // Severity < 1 is linearly interpolated from the identity matrix. That approximates
+        // Machado's published per-severity tables rather than reproducing them exactly.
+        public static Rgb SimulateDeuteranomaly(Rgb c, double severity)
+        {
+            double s = Math.Min(1.0, Math.Max(0.0, severity));
+            double r = ToLinear(c.R), g = ToLinear(c.G), b = ToLinear(c.B);
+
+            double m00 = 1 + s * (0.367322 - 1), m01 = s * 0.860646, m02 = s * -0.227968;
+            double m10 = s * 0.280085, m11 = 1 + s * (0.672501 - 1), m12 = s * 0.047413;
+            double m20 = s * -0.011820, m21 = s * 0.042940, m22 = 1 + s * (0.968881 - 1);
+
+            double nr = m00 * r + m01 * g + m02 * b;
+            double ng = m10 * r + m11 * g + m12 * b;
+            double nb = m20 * r + m21 * g + m22 * b;
+            return new Rgb(ToSrgb(nr), ToSrgb(ng), ToSrgb(nb));
+        }
+
+        // ---------- color space conversions ----------
+
+        static double ToLinear(double c)
+        {
+            c = Math.Min(1.0, Math.Max(0.0, c));
+            return c <= 0.04045 ? c / 12.92 : Math.Pow((c + 0.055) / 1.055, 2.4);
+        }
+
+        static double ToSrgb(double c)
+        {
+            c = Math.Min(1.0, Math.Max(0.0, c));
+            return c <= 0.0031308 ? c * 12.92 : 1.055 * Math.Pow(c, 1 / 2.4) - 0.055;
+        }
+
+        public static double[] ToLab(Rgb c)
+        {
+            double r = ToLinear(c.R), g = ToLinear(c.G), b = ToLinear(c.B);
+            double x = (0.4124564 * r + 0.3575761 * g + 0.1804375 * b) / 0.95047;
+            double y = 0.2126729 * r + 0.7151522 * g + 0.0721750 * b;
+            double z = (0.0193339 * r + 0.1191920 * g + 0.9503041 * b) / 1.08883;
+            double fx = LabF(x), fy = LabF(y), fz = LabF(z);
+            return new[] { 116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz) };
+        }
+
+        static double LabF(double t)
+        {
+            return t > 216.0 / 24389.0 ? Math.Pow(t, 1.0 / 3.0) : (24389.0 / 27.0 * t + 16) / 116;
+        }
+
+        static void RgbToHsv(Rgb c, out double h, out double s, out double v)
+        {
+            double max = Math.Max(c.R, Math.Max(c.G, c.B));
+            double min = Math.Min(c.R, Math.Min(c.G, c.B));
+            double d = max - min;
+            v = max;
+            s = max <= 0 ? 0 : d / max;
+            if (d <= 0) { h = 0; return; }
+            if (max == c.R) h = 60 * (((c.G - c.B) / d) % 6);
+            else if (max == c.G) h = 60 * ((c.B - c.R) / d + 2);
+            else h = 60 * ((c.R - c.G) / d + 4);
+            if (h < 0) h += 360;
+        }
+
+        static Rgb HsvToRgb(double h, double s, double v)
+        {
+            double c = v * s;
+            double x = c * (1 - Math.Abs((h / 60) % 2 - 1));
+            double m = v - c;
+            double r, g, b;
+            if (h < 60) { r = c; g = x; b = 0; }
+            else if (h < 120) { r = x; g = c; b = 0; }
+            else if (h < 180) { r = 0; g = c; b = x; }
+            else if (h < 240) { r = 0; g = x; b = c; }
+            else if (h < 300) { r = x; g = 0; b = c; }
+            else { r = c; g = 0; b = x; }
+            return new Rgb(r + m, g + m, b + m);
+        }
+
+        // ---------- CIEDE2000 ----------
+
+        static double Rad(double deg) { return deg * Math.PI / 180.0; }
+
+        static double HueDeg(double b, double a)
+        {
+            if (a == 0 && b == 0) return 0;
+            double h = Math.Atan2(b, a) * 180.0 / Math.PI;
+            return h < 0 ? h + 360 : h;
+        }
+
+        public static double DeltaE2000(double[] lab1, double[] lab2)
+        {
+            double L1 = lab1[0], a1 = lab1[1], b1 = lab1[2];
+            double L2 = lab2[0], a2 = lab2[1], b2 = lab2[2];
+
+            double C1 = Math.Sqrt(a1 * a1 + b1 * b1), C2 = Math.Sqrt(a2 * a2 + b2 * b2);
+            double Cbar7 = Math.Pow((C1 + C2) / 2, 7);
+            double G = 0.5 * (1 - Math.Sqrt(Cbar7 / (Cbar7 + Math.Pow(25, 7))));
+            double a1p = (1 + G) * a1, a2p = (1 + G) * a2;
+            double C1p = Math.Sqrt(a1p * a1p + b1 * b1), C2p = Math.Sqrt(a2p * a2p + b2 * b2);
+            double h1p = HueDeg(b1, a1p), h2p = HueDeg(b2, a2p);
+
+            double dLp = L2 - L1, dCp = C2p - C1p;
+            double dhp = 0;
+            if (C1p * C2p != 0)
+            {
+                dhp = h2p - h1p;
+                if (dhp > 180) dhp -= 360;
+                else if (dhp < -180) dhp += 360;
+            }
+            double dHp = 2 * Math.Sqrt(C1p * C2p) * Math.Sin(Rad(dhp) / 2);
+
+            double Lbp = (L1 + L2) / 2, Cbp = (C1p + C2p) / 2;
+            double hbp;
+            if (C1p * C2p == 0) hbp = h1p + h2p;
+            else if (Math.Abs(h1p - h2p) <= 180) hbp = (h1p + h2p) / 2;
+            else if (h1p + h2p < 360) hbp = (h1p + h2p + 360) / 2;
+            else hbp = (h1p + h2p - 360) / 2;
+
+            double T = 1 - 0.17 * Math.Cos(Rad(hbp - 30)) + 0.24 * Math.Cos(Rad(2 * hbp))
+                         + 0.32 * Math.Cos(Rad(3 * hbp + 6)) - 0.20 * Math.Cos(Rad(4 * hbp - 63));
+            double dTheta = 30 * Math.Exp(-Math.Pow((hbp - 275) / 25, 2));
+            double Cbp7 = Math.Pow(Cbp, 7);
+            double Rc = 2 * Math.Sqrt(Cbp7 / (Cbp7 + Math.Pow(25, 7)));
+            double l50 = (Lbp - 50) * (Lbp - 50);
+            double Sl = 1 + 0.015 * l50 / Math.Sqrt(20 + l50);
+            double Sc = 1 + 0.045 * Cbp;
+            double Sh = 1 + 0.015 * Cbp * T;
+            double Rt = -Math.Sin(Rad(2 * dTheta)) * Rc;
+
+            double tl = dLp / Sl, tc = dCp / Sc, th = dHp / Sh;
+            return Math.Sqrt(tl * tl + tc * tc + th * th + Rt * tc * th);
+        }
+    }
+}
