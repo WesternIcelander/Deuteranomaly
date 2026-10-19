@@ -12,6 +12,7 @@ A Beat Saber PC mod that keeps a map's own saber colors whenever the user can te
 - Colors that change partway through a map must be handled too, not only the colors at level start.
 - The mod must work with and without the mods it integrates with (Chroma and others found in step 5). Those mods are optional, never required.
 - When an override triggers, pick the closest alternative pair that passes the distance threshold, not a fixed pair.
+- Mod identity: name `Deuteranomaly`, manifest ID `io.siggi.beatsaber.deuteranomaly`. The BSIPA manifest schema only requires the ID to contain no whitespace, so the reverse-domain form is valid, though most mods use a plain name like `Chroma`.
 - Game: Beat Saber 1.40.8 (PC). Mods are installed with BSManager.
 - Language: C#. Beat Saber is built on Unity 2022.3 with .NET Framework 4.7.2 (source: bsmg.wiki PC setup page), so the plugin targets `net472`.
 
@@ -31,7 +32,7 @@ Sanity numbers from the JS port at severity 0.6: default red/blue pair about 47.
 ## Tasks
 
 1. **Project setup.** Create the solution outside the Beat Saber folder. The BSMG wiki recommends the BeatSaberModdingTools (BSMT) templates, with `GameVersion` set to `1.40.8` in `Directory.Build.props` and the game directory stored in the `.csproj.user` file. A BSManager instance path can be used as the game directory. Debug and Release builds copy the DLL into the game's `Plugins` folder. The game folder is `D:\Software\BSManager\BSInstances\1.40.8` (see `CLAUDE.md`: ask before writing to it).
-2. **Compile the core and add the other deficiency types.** Add `ColorAssistCore.cs` and fix any compile errors. Keep it free of Unity and game references. Then generalize the simulation:
+2. **Compile the core and add the other deficiency types.** Add `ColorAssistCore.cs` and fix any compile errors. Keep it free of Unity and game references. Rename its namespace from `PerMapColorAssist.Core` to `Deuteranomaly.Core` to match the mod name, and use the `Deuteranomaly` root namespace for the rest of the mod. Then generalize the simulation:
    - Add `enum CvdType { Protan, Deutan, Tritan }` and a `Settings.Type` field (default `Deutan`).
    - Replace `SimulateDeuteranomaly(c, severity)` with `Simulate(c, type, severity)`. Pass the type through `SimulatedDistance` and `BuildCandidates`. The candidate search needs no change, since it already tries hues all the way around the wheel.
    - Protan and deutan use Machado et al. (2009) severity 1.0 matrices in linear RGB, as deutan does now.
