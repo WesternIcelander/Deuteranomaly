@@ -65,6 +65,10 @@
       <HintPath>$(GameDirectory)\Beat Saber_Data\Managed\BGLib.AppFlow.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="BGLib.UnityExtension">
+      <HintPath>$(GameDirectory)\Beat Saber_Data\Managed\BGLib.UnityExtension.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
     <Reference Include="Zenject">
       <HintPath>$(GameDirectory)\Beat Saber_Data\Managed\Zenject.dll</HintPath>
       <Private>False</Private>

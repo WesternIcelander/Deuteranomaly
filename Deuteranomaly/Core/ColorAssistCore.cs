@@ -35,6 +35,9 @@ namespace Deuteranomaly.Core
 
         /// <summary>Lowest HSV value an overridden color may have, so blocks stay visible.</summary>
         public double MinValue = 0.35;
+
+        /// <summary>A copy that can be changed without affecting this one. <see cref="ValueFactors"/> is shared, as it is never modified.</summary>
+        public Settings Clone() => (Settings)MemberwiseClone();
     }
 
     public class Result

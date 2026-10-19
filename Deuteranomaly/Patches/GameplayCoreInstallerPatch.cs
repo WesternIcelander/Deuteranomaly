@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.Reflection;
+using Deuteranomaly.Core;
 using HarmonyLib;
 
 namespace Deuteranomaly.Patches
@@ -21,9 +22,32 @@ namespace Deuteranomaly.Patches
         [HarmonyPrefix]
         private static void Prefix(GameplayCoreSceneSetupData ____sceneSetupData)
         {
+            if (!Plugin.Config.Enabled || ____sceneSetupData == null)
+            {
+                return;
+            }
+
+            string level;
+            Settings settings;
             try
             {
-                Apply(____sceneSetupData);
+                level = ____sceneSetupData.beatmapKey.SerializedName();
+                settings = SettingsFor(____sceneSetupData, level);
+            }
+            catch (Exception e)
+            {
+                Plugin.Log.Error($"Reading the settings failed, keeping the map's colors: {e}");
+                return;
+            }
+
+            if (settings == null)
+            {
+                return;
+            }
+
+            try
+            {
+                Apply(____sceneSetupData, level, settings);
             }
             catch (Exception e)
             {
@@ -33,10 +57,7 @@ namespace Deuteranomaly.Patches
             // After the scheme, whose final colors the pass pairs uncolored notes against.
             try
             {
-                if (Plugin.Enabled && ____sceneSetupData != null)
-                {
-                    CustomColorIntegration.Apply(____sceneSetupData, ____sceneSetupData.beatmapKey.SerializedName());
-                }
+                CustomColorIntegration.Apply(____sceneSetupData, level, settings);
             }
             catch (Exception e)
             {
@@ -44,22 +65,51 @@ namespace Deuteranomaly.Patches
             }
         }
 
-        private static void Apply(GameplayCoreSceneSetupData setupData)
+        /// <summary>The settings for this level, or null when the config excludes it.</summary>
+        private static Settings SettingsFor(GameplayCoreSceneSetupData setupData, string level)
         {
-            if (!Plugin.Enabled || setupData == null)
+            PluginConfig config = Plugin.Config;
+            Settings settings = config.ToSettings();
+            BeatmapKey key = setupData.beatmapKey;
+            MapRule rule = MapRules.Find(
+                config.PinnedMaps,
+                config.ExcludedMaps,
+                key.levelId,
+                key.beatmapCharacteristic != null ? key.beatmapCharacteristic.serializedName : "",
+                key.difficulty.SerializedName());
+            if (rule == MapRule.Excluded)
             {
-                return;
+                Plugin.Log.Info($"{level}: excluded in the config, keeping the map's colors.");
+                return null;
             }
 
+            // On a restart the scheme is already our output; the pinned threshold only matters the first time.
+            ColorScheme scheme = setupData.colorScheme;
+            if (rule == MapRule.Default || scheme == null || ColorSchemeCorrector.IsCorrected(scheme))
+            {
+                return settings;
+            }
+
+            double distance = ColorAssist.SimulatedDistance(
+                ColorSchemeCorrector.ToRgb(scheme.saberAColor),
+                ColorSchemeCorrector.ToRgb(scheme.saberBColor),
+                settings.Type,
+                settings.Severity);
+            Settings pinned = MapRules.ForPinned(settings, distance, config.PinExtraDistance);
+            Plugin.Log.Info($"{level}: pinned in the config, threshold {pinned.Threshold:F1}.");
+            return pinned;
+        }
+
+        private static void Apply(GameplayCoreSceneSetupData setupData, string level, Settings settings)
+        {
             ColorScheme scheme = setupData.colorScheme;
             if (scheme == null || ColorSchemeCorrector.IsCorrected(scheme))
             {
                 return;
             }
 
-            string level = setupData.beatmapKey.SerializedName();
             var stopwatch = Stopwatch.StartNew();
-            ColorScheme corrected = ColorSchemeCorrector.Correct(scheme, Plugin.Settings, out var result);
+            ColorScheme corrected = ColorSchemeCorrector.Correct(scheme, settings, out var result);
             stopwatch.Stop();
 
             if (corrected == null)

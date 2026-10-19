@@ -1,6 +1,8 @@
 using System.Reflection;
 using HarmonyLib;
 using IPA;
+using IPA.Config.Stores;
+using IPAConfig = IPA.Config.Config;
 using IPALogger = IPA.Logging.Logger;
 
 namespace Deuteranomaly
@@ -12,18 +14,16 @@ namespace Deuteranomaly
 
         internal static Plugin Instance { get; private set; }
         internal static IPALogger Log { get; private set; }
-
-        // Defaults until the config (step 7) and settings UI (step 8) exist.
-        internal static bool Enabled { get; set; } = true;
-        internal static Core.Settings Settings { get; } = new Core.Settings();
+        internal static PluginConfig Config { get; private set; }
 
         private Harmony _harmony;
 
         [Init]
-        public void Init(IPALogger logger)
+        public void Init(IPALogger logger, IPAConfig config)
         {
             Instance = this;
             Log = logger;
+            Config = config.Generated<PluginConfig>();
         }
 
         [OnStart]
@@ -32,7 +32,9 @@ namespace Deuteranomaly
             _harmony = new Harmony(HarmonyId);
             _harmony.PatchAll(Assembly.GetExecutingAssembly());
             CustomColorIntegration.Init();
-            Log.Info("Deuteranomaly loaded.");
+            Log.Info(
+                $"Deuteranomaly loaded ({(Config.Enabled ? "enabled" : "disabled")}, {Config.Type}, severity {Config.Severity:F2}, threshold {Config.Threshold:F1}, " +
+                $"{Config.PinnedMaps.Count} pinned, {Config.ExcludedMaps.Count} excluded).");
         }
 
         [OnExit]

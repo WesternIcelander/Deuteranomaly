@@ -59,7 +59,7 @@ namespace Deuteranomaly
             }
         }
 
-        internal static void Apply(GameplayCoreSceneSetupData setupData, string level)
+        internal static void Apply(GameplayCoreSceneSetupData setupData, string level, Settings settings)
         {
             if (!_available || setupData.colorScheme == null)
             {
@@ -124,7 +124,7 @@ namespace Deuteranomaly
                 v2,
                 ColorSchemeCorrector.ToRgb(scheme.saberAColor),
                 ColorSchemeCorrector.ToRgb(scheme.saberBColor),
-                Plugin.Settings);
+                settings);
             stopwatch.Stop();
 
             Log(level, stats, stopwatch.ElapsedMilliseconds);
