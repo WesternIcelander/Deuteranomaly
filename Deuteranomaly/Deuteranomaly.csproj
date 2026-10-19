@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <DependsOn Include="BSIPA" Version="^4.3.0" />
+    <DependsOn Include="BeatSaberMarkupLanguage" Version="^1.12.5" />
     <!-- Optional: loaded first when present, never required. -->
     <LoadAfter Include="SongCore" />
     <LoadAfter Include="CustomJSONData" />
@@ -73,6 +74,22 @@
       <HintPath>$(GameDirectory)\Beat Saber_Data\Managed\Zenject.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="BeatSaber.ViewSystem">
+      <HintPath>$(GameDirectory)\Beat Saber_Data\Managed\BeatSaber.ViewSystem.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="HMUI">
+      <HintPath>$(GameDirectory)\Beat Saber_Data\Managed\HMUI.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="BSML">
+      <HintPath>$(GameDirectory)\Plugins\BSML.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="UI\SettingsViewController.bsml" LogicalName="Deuteranomaly.UI.SettingsViewController.bsml" />
   </ItemGroup>
 
   <ItemGroup>

@@ -80,6 +80,17 @@ namespace Deuteranomaly.Patches
             if (rule == MapRule.Excluded)
             {
                 Plugin.Log.Info($"{level}: excluded in the config, keeping the map's colors.");
+                if (setupData.colorScheme != null && !ColorSchemeCorrector.IsCorrected(setupData.colorScheme))
+                {
+                    LevelReport report = Report(setupData, level, setupData.colorScheme, null, null);
+                    report.OriginalDistance = report.FinalDistance = ColorAssist.SimulatedDistance(
+                        ColorSchemeCorrector.ToRgb(report.OriginalLeft),
+                        ColorSchemeCorrector.ToRgb(report.OriginalRight),
+                        settings.Type,
+                        settings.Severity);
+                    report.Note = "excluded in the config";
+                }
+
                 return null;
             }
 
@@ -112,6 +123,7 @@ namespace Deuteranomaly.Patches
             ColorScheme corrected = ColorSchemeCorrector.Correct(scheme, settings, out var result);
             stopwatch.Stop();
 
+            Report(setupData, level, scheme, corrected, result);
             if (corrected == null)
             {
                 Plugin.Log.Info(
@@ -127,6 +139,31 @@ namespace Deuteranomaly.Patches
                 $"distance {result.OriginalDistance:F1} -> {result.FinalDistance:F1}" +
                 (result.MeetsThreshold ? "" : " (below threshold, best available)") +
                 $" ({stopwatch.ElapsedMilliseconds} ms)");
+        }
+
+        /// <summary>Records the level's outcome for the settings screen's read-out.</summary>
+        private static LevelReport Report(GameplayCoreSceneSetupData setupData, string level, ColorScheme scheme, ColorScheme corrected, Result result)
+        {
+            ColorScheme final = corrected ?? scheme;
+            var report = new LevelReport
+            {
+                Level = level,
+                SongName = setupData.beatmapLevel?.songName,
+                OriginalLeft = scheme.saberAColor,
+                OriginalRight = scheme.saberBColor,
+                FinalLeft = final.saberAColor,
+                FinalRight = final.saberBColor,
+                Changed = corrected != null
+            };
+            if (result != null)
+            {
+                report.OriginalDistance = result.OriginalDistance;
+                report.FinalDistance = result.FinalDistance;
+                report.MeetsThreshold = result.MeetsThreshold;
+            }
+
+            LevelReport.Last = report;
+            return report;
         }
     }
 }

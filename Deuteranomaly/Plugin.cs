@@ -32,6 +32,7 @@ namespace Deuteranomaly
             _harmony = new Harmony(HarmonyId);
             _harmony.PatchAll(Assembly.GetExecutingAssembly());
             CustomColorIntegration.Init();
+            UI.SettingsMenu.Init();
             Log.Info(
                 $"Deuteranomaly loaded ({(Config.Enabled ? "enabled" : "disabled")}, {Config.Type}, severity {Config.Severity:F2}, threshold {Config.Threshold:F1}, " +
                 $"{Config.PinnedMaps.Count} pinned, {Config.ExcludedMaps.Count} excluded).");
@@ -40,6 +41,7 @@ namespace Deuteranomaly
         [OnExit]
         public void OnApplicationQuit()
         {
+            UI.SettingsMenu.Dispose();
             _harmony?.UnpatchSelf();
         }
     }

@@ -128,6 +128,13 @@ namespace Deuteranomaly
             stopwatch.Stop();
 
             Log(level, stats, stopwatch.ElapsedMilliseconds);
+
+            LevelReport report = LevelReport.Last;
+            if (report != null && report.Level == level && stats.Colors > 0)
+            {
+                report.CustomColors = $"{stats.Changed} of {stats.Colors} custom colors changed" +
+                    (stats.PairsBelowThreshold > 0 ? $", {stats.PairsBelowThreshold} pairs below threshold" : "");
+            }
         }
 
         private static void Log(string level, PassStats stats, long milliseconds)

@@ -1,0 +1,15 @@
+<vertical child-control-height='false' child-align='UpperCenter' pref-width='110' spacing='1' pad-top='2'
+          xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance'
+          xsi:schemaLocation='https://monkeymanboy.github.io/BSML-Docs/ https://monkeymanboy.github.io/BSML-Docs/BSMLSchema.xsd'>
+  <toggle-setting text='Enabled' value='enabled' apply-on-change='true'
+                  hover-hint='Check each map and change its saber and note colors when they look too similar' />
+  <dropdown-list-setting text='Color vision type' value='type' choices='type-choices' formatter='format-type' apply-on-change='true'
+                         hover-hint='Which kind of color vision deficiency to check the colors against' />
+  <slider-setting text='Severity' value='severity' min='0' max='1' increment='0.05' formatter='format-severity' apply-on-change='true'
+                  hover-hint='0 = normal vision, 1 = full protanopia, deuteranopia or tritanopia' />
+  <slider-setting text='Threshold' value='threshold' min='0' max='40' increment='0.5' formatter='format-threshold' apply-on-change='true'
+                  hover-hint='How far apart the two colors must look (CIEDE2000). Higher changes more maps' />
+  <vertical bg='round-rect-panel' pref-width='100' pref-height='30' pad='2' child-control-height='true'>
+    <text text='~last-level' font-size='3.5' rich-text='true' word-wrapping='true' />
+  </vertical>
+</vertical>
