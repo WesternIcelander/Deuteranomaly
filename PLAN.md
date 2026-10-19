@@ -18,7 +18,7 @@ A Beat Saber PC mod that keeps a map's own saber colors whenever the user can te
 
 ## What already exists
 
-`ColorAssistCore.cs` (namespace `PerMapColorAssist.Core`) is finished design-wise but has never been compiled.
+`ColorAssistCore.cs` (originally namespace `PerMapColorAssist.Core`; since step 2 at `Deuteranomaly/Core/ColorAssistCore.cs`, namespace `Deuteranomaly.Core`, compiled, with all three deficiency types) is finished design-wise. The description below is the original deutan-only version.
 
 - It has no Unity or Beat Saber references. Convert `UnityEngine.Color` to the `Rgb` struct (channels 0..1, sRGB) at the edges.
 - `ColorAssist.Resolve(Rgb left, Rgb right, Settings s)` returns a `Result`: the chosen colors, whether they changed, whether the threshold was met, and the simulated distance before and after.
@@ -47,6 +47,19 @@ Sanity numbers from the JS port at severity 0.6: default red/blue pair about 47.
    - Tritan uses Brettel, Viénot & Mollon (1997), because single-matrix models (Machado, Viénot 1999) are inaccurate for tritan. Brettel projects onto one of two half-planes in LMS space. Using libDaltonLens's precomputed form, this becomes: in linear RGB, take the dot product of the color with a separation-plane normal; if it is `>= 0`, apply matrix 1, otherwise apply matrix 2.
    - For every type, apply severity as a linear interpolation in linear RGB between the input and the full simulation: `out = in + severity * (sim - in)`. This is equivalent to the current interpolation from the identity matrix.
    - Optional later improvement: interpolate between Machado's per-severity tables (published in steps of 0.1) instead of from identity, for protan and deutan.
+   - **Done.** The core now lives at `Deuteranomaly/Core/ColorAssistCore.cs` (moved from the repo root with `git mv`), namespace `Deuteranomaly.Core`, compiled into the plugin. It compiled without changes apart from the planned ones. Public API: `CvdType`, `Settings.Type`, `ColorAssist.Simulate(Rgb, CvdType, double)`, `ColorAssist.SimulatedDistance(Rgb, Rgb, CvdType, double)`, `Resolve`, `ToLab`, `DeltaE2000`. The step 3 test project should link this file (`<Compile Include="..\Deuteranomaly\Core\ColorAssistCore.cs" />`) rather than reference the plugin, which needs the game DLLs.
+   - Checked by loading the built DLL in Windows PowerShell (not yet unit tests): gray (0.2, 0.5, 0.9) stays gray at severity 1 for all three types; default Beat Saber red/blue (`#C81414` / `#288ED2`) gives 47.7 for deutan at 0.6, matching the JS port's ~47.8.
+   - Sanity numbers (CIEDE2000 of simulated colors). Default red/blue: protan 48.3 (0.6) / 52.2 (1.0), deutan 47.7 / 53.6, tritan 59.4 / 66.2. Pure primaries at 0.6 / 1.0:
+
+     | Pair | Protan | Deutan | Tritan |
+     |---|---|---|---|
+     | red `#FF0000` / blue `#0000FF` | 52.2 / 64.1 | 61.9 / 75.2 | 46.7 / 55.4 |
+     | red / green `#00FF00` | 57.7 / 42.4 | 44.4 / 19.4 | 75.6 / 76.2 |
+     | orange `#FF8000` / green | 34.1 / 22.9 | 29.4 / 10.2 | 63.1 / 65.7 |
+     | blue / green | 96.1 / 84.0 | 99.5 / 85.4 | 59.7 / 41.9 |
+     | yellow `#FFFF00` / violet `#8000FF` | 91.3 / 84.6 | 92.7 / 86.6 | 66.9 / 46.7 |
+
+     The plan's earlier red/green (36.3) and orange/green (19.1) deutan figures used colors that weren't recorded, so they don't match the pure-primary rows. Note for step 3: pure blue/green and yellow/violet stay above 40 even at full tritanopia, so they aren't confusion pairs for this model with `Threshold = 15`. The tritan `Resolve` test needs a closer pair (for example two colors on a tritan confusion line, such as a blue and a blue-green of similar lightness); pick one by computing its distance first.
 
    Constants (row-major, linear RGB, severity 1.0), checked against the sources on 2026-10-19:
 

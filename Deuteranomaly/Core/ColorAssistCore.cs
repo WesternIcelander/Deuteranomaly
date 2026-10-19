@@ -3,8 +3,11 @@ using System.Collections.Generic;
 
 // Pure C#, no Unity or Beat Saber references, so it can be unit-tested outside the game.
 // Targets .NET Framework 4.7.2 (no Math.Cbrt, no tuples).
-namespace PerMapColorAssist.Core
+namespace Deuteranomaly.Core
 {
+    /// <summary>Color vision deficiency type. Severity picks between "-anomaly" (below 1) and "-opia" (1).</summary>
+    public enum CvdType { Protan, Deutan, Tritan }
+
     /// <summary>sRGB color, each channel 0..1. Convert to/from UnityEngine.Color at the edges.</summary>
     public struct Rgb
     {
@@ -14,7 +17,10 @@ namespace PerMapColorAssist.Core
 
     public class Settings
     {
-        /// <summary>Deuteranomaly severity: 0 = normal vision, 1 = full deuteranopia. Tune by eye.</summary>
+        /// <summary>Which deficiency to simulate.</summary>
+        public CvdType Type = CvdType.Deutan;
+
+        /// <summary>Severity: 0 = normal vision, 1 = full protanopia, deuteranopia or tritanopia. Tune by eye.</summary>
         public double Severity = 0.6;
 
         /// <summary>Minimum CIEDE2000 distance between the two simulated colors. Tune by eye.</summary>
@@ -45,7 +51,7 @@ namespace PerMapColorAssist.Core
 
         public static Result Resolve(Rgb left, Rgb right, Settings s)
         {
-            double origDist = SimulatedDistance(left, right, s.Severity);
+            double origDist = SimulatedDistance(left, right, s.Type, s.Severity);
             if (origDist >= s.Threshold)
             {
                 return new Result
@@ -88,10 +94,10 @@ namespace PerMapColorAssist.Core
             };
         }
 
-        public static double SimulatedDistance(Rgb a, Rgb b, double severity)
+        public static double SimulatedDistance(Rgb a, Rgb b, CvdType type, double severity)
         {
-            return DeltaE2000(ToLab(SimulateDeuteranomaly(a, severity)),
-                              ToLab(SimulateDeuteranomaly(b, severity)));
+            return DeltaE2000(ToLab(Simulate(a, type, severity)),
+                              ToLab(Simulate(b, type, severity)));
         }
 
         // ---------- candidate generation ----------
@@ -120,7 +126,7 @@ namespace PerMapColorAssist.Core
                     list.Add(new Candidate
                     {
                         Color = c,
-                        SimLab = ToLab(SimulateDeuteranomaly(c, s.Severity)),
+                        SimLab = ToLab(Simulate(c, s.Type, s.Severity)),
                         Cost = DeltaE2000(origLab, ToLab(c))
                     });
                 }
@@ -129,7 +135,7 @@ namespace PerMapColorAssist.Core
             list.Add(new Candidate
             {
                 Color = original,
-                SimLab = ToLab(SimulateDeuteranomaly(original, s.Severity)),
+                SimLab = ToLab(Simulate(original, s.Type, s.Severity)),
                 Cost = 0
             });
             return list;
@@ -137,22 +143,64 @@ namespace PerMapColorAssist.Core
 
         // ---------- color vision simulation ----------
 
-        // Machado et al. (2009) deuteranopia matrix (severity 1.0), applied in linear RGB.
-        // Severity < 1 is linearly interpolated from the identity matrix. That approximates
-        // Machado's published per-severity tables rather than reproducing them exactly.
-        public static Rgb SimulateDeuteranomaly(Rgb c, double severity)
+        // Machado et al. (2009) severity 1.0 matrices, row-major, applied in linear RGB.
+        static readonly double[] MachadoProtan =
+        {
+            0.152286, 1.052583, -0.204868,
+            0.114503, 0.786281, 0.099216,
+            -0.003882, -0.048116, 1.051998
+        };
+
+        static readonly double[] MachadoDeutan =
+        {
+            0.367322, 0.860646, -0.227968,
+            0.280085, 0.672501, 0.047413,
+            -0.011820, 0.042940, 0.968881
+        };
+
+        // Brettel, Vienot & Mollon (1997) tritanopia in libDaltonLens's precomputed form (public
+        // domain): sRGB primaries, Smith & Pokorny 1975 LMS, RGB white as the neutral axis.
+        // The sign of the dot product with the separation normal picks the half-plane.
+        static readonly double[] BrettelTritan1 =
+        {
+            1.01277, 0.13548, -0.14826,
+            -0.01243, 0.86812, 0.14431,
+            0.07589, 0.80500, 0.11911
+        };
+
+        static readonly double[] BrettelTritan2 =
+        {
+            0.93678, 0.18979, -0.12657,
+            0.06154, 0.81526, 0.12320,
+            -0.37562, 1.12767, 0.24796
+        };
+
+        static readonly double[] BrettelTritanNormal = { 0.03901, -0.02788, -0.01113 };
+
+        // Severity < 1 is a linear interpolation in linear RGB between the input and the full
+        // simulation. For Machado that equals interpolating from the identity matrix, which
+        // approximates the published per-severity tables rather than reproducing them exactly.
+        public static Rgb Simulate(Rgb c, CvdType type, double severity)
         {
             double s = Math.Min(1.0, Math.Max(0.0, severity));
             double r = ToLinear(c.R), g = ToLinear(c.G), b = ToLinear(c.B);
 
-            double m00 = 1 + s * (0.367322 - 1), m01 = s * 0.860646, m02 = s * -0.227968;
-            double m10 = s * 0.280085, m11 = 1 + s * (0.672501 - 1), m12 = s * 0.047413;
-            double m20 = s * -0.011820, m21 = s * 0.042940, m22 = 1 + s * (0.968881 - 1);
+            double[] m;
+            switch (type)
+            {
+                case CvdType.Protan: m = MachadoProtan; break;
+                case CvdType.Deutan: m = MachadoDeutan; break;
+                default:
+                    double side = BrettelTritanNormal[0] * r + BrettelTritanNormal[1] * g
+                                + BrettelTritanNormal[2] * b;
+                    m = side >= 0 ? BrettelTritan1 : BrettelTritan2;
+                    break;
+            }
 
-            double nr = m00 * r + m01 * g + m02 * b;
-            double ng = m10 * r + m11 * g + m12 * b;
-            double nb = m20 * r + m21 * g + m22 * b;
-            return new Rgb(ToSrgb(nr), ToSrgb(ng), ToSrgb(nb));
+            double sr = m[0] * r + m[1] * g + m[2] * b;
+            double sg = m[3] * r + m[4] * g + m[5] * b;
+            double sb = m[6] * r + m[7] * g + m[8] * b;
+            return new Rgb(ToSrgb(r + s * (sr - r)), ToSrgb(g + s * (sg - g)), ToSrgb(b + s * (sb - b)));
         }
 
         // ---------- color space conversions ----------
