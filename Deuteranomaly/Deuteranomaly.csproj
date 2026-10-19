@@ -40,6 +40,30 @@
       <HintPath>$(GameDirectory)\Libs\0Harmony.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="Main">
+      <HintPath>$(GameDirectory)\Beat Saber_Data\Managed\Main.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Colors">
+      <HintPath>$(GameDirectory)\Beat Saber_Data\Managed\Colors.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="DataModels">
+      <HintPath>$(GameDirectory)\Beat Saber_Data\Managed\DataModels.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="BeatmapCore">
+      <HintPath>$(GameDirectory)\Beat Saber_Data\Managed\BeatmapCore.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="BGLib.AppFlow">
+      <HintPath>$(GameDirectory)\Beat Saber_Data\Managed\BGLib.AppFlow.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Zenject">
+      <HintPath>$(GameDirectory)\Beat Saber_Data\Managed\Zenject.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
   </ItemGroup>
 
   <ItemGroup>
